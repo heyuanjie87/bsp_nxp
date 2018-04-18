@@ -146,6 +146,17 @@ int main(void)
     }
 }
 
+static int stdio_init(void)
+{
+    int fd;
+    
+	dfs_mount(0, "/dev", "devfs", 0, 0);
+	fd = open("/dev/uart1", O_RDWR, 0);
+    dup(fd);
+
+    return fd;	
+}
+INIT_ENV_EXPORT(stdio_init);
 
 
 /*@}*/

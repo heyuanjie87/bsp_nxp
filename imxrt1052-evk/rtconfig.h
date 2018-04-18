@@ -66,7 +66,7 @@
 
 #define RT_USING_FINSH
 #define FINSH_THREAD_NAME "tshell"
-#define FINSH_USING_HISTORY
+//#define FINSH_USING_HISTORY
 #define FINSH_HISTORY_LINES 5
 #define FINSH_USING_SYMTAB
 #define FINSH_USING_DESCRIPTION
@@ -81,11 +81,11 @@
 /* Device virtual file system */
 
 #define RT_USING_DFS
-#define DFS_USING_WORKDIR
+//#define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
 #define DFS_FD_MAX 4
-#define RT_USING_DFS_ELMFAT
+//#define RT_USING_DFS_ELMFAT
 
 /* elm-chan's FatFs, Generic FAT Filesystem Module */
 
@@ -116,7 +116,7 @@
 /* RT_USING_CAN is not set */
 /* RT_USING_HWTIMER is not set */
 /* RT_USING_CPUTIME is not set */
-#define RT_USING_I2C
+//#define RT_USING_I2C
 #define RT_USING_I2C_BITOPS
 #define RT_USING_PIN
 /* RT_USING_MTD_NOR is not set */
@@ -124,7 +124,7 @@
 //#define RT_USING_RTC
 /* RT_USING_SOFT_RTC is not set */
 /* RTC_SYNC_USING_NTP is not set */
-#define RT_USING_SDIO
+//#define RT_USING_SDIO
 /* RT_USING_SPI is not set */
 /* RT_USING_WDT is not set */
 /* RT_USING_WIFI is not set */
@@ -138,7 +138,7 @@
 
 #define RT_USING_LIBC
 /* RT_USING_PTHREADS is not set */
-/* RT_USING_POSIX is not set */
+#define RT_USING_POSIX
 /* HAVE_SYS_SIGNALS is not set */
 
 /* Network stack */

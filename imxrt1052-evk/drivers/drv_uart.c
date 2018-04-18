@@ -12,12 +12,12 @@
  * 2017-10-10     Tanek        the first version
  * 2018-03-17     laiyiketang  Add other uart.
  */
-#include <rtthread.h>
-#include "drv_uart.h"
 
 #include "fsl_common.h"
 #include "fsl_lpuart.h"
 #include "fsl_iomuxc.h"
+#include "drv_uart.h"
+ #include <rtdevice.h>
 
 #ifdef RT_USING_SERIAL
 
@@ -33,10 +33,6 @@
 #error "Please define at least one UARTx"
 
 #endif
-
-
-
-#include <rtdevice.h>
 
 /* imxrt uart driver */
 struct imxrt_uart
@@ -388,13 +384,10 @@ void imxrt_uart_gpio_init(struct imxrt_uart *uart)
     }
 }
 
-static rt_err_t imxrt_configure(struct rt_serial_device *serial, struct serial_configure *cfg)
+static int imxrt_configure(rt_serial_t *serial, struct serial_configure *cfg)
 {
     struct imxrt_uart *uart;
     lpuart_config_t config;
-
-    RT_ASSERT(serial != RT_NULL);
-    RT_ASSERT(cfg != RT_NULL);
 
     uart = (struct imxrt_uart *)serial->parent.user_data;
 
@@ -403,50 +396,19 @@ static rt_err_t imxrt_configure(struct rt_serial_device *serial, struct serial_c
     LPUART_GetDefaultConfig(&config);
     config.baudRate_Bps = cfg->baud_rate;
 
-    switch (cfg->data_bits)
-    {
-    case DATA_BITS_7:
-        config.dataBitsCount = kLPUART_SevenDataBits;
-        break;
-
-    default:
-        config.dataBitsCount = kLPUART_EightDataBits;
-        break;
-    }
-
-    switch (cfg->stop_bits)
-    {
-    case STOP_BITS_2:
-        config.stopBitCount = kLPUART_TwoStopBit;
-        break;
-    default:
-        config.stopBitCount = kLPUART_OneStopBit;
-        break;
-    }
-
-    switch (cfg->parity)
-    {
-    case PARITY_ODD:
-        config.parityMode = kLPUART_ParityOdd;
-        break;
-    case PARITY_EVEN:
-        config.parityMode = kLPUART_ParityEven;
-        break;
-    default:
-        config.parityMode = kLPUART_ParityDisabled;
-        break;
-    }
+    config.dataBitsCount = kLPUART_EightDataBits;
+    config.stopBitCount = kLPUART_OneStopBit;
+    config.parityMode = kLPUART_ParityDisabled;
 
     config.enableTx = true;
     config.enableRx = true;
 
     LPUART_Init(uart->uart_base, &config, BOARD_DebugConsoleSrcFreq());
 
-
-    return RT_EOK;
+    return 0;
 }
 
-static rt_err_t imxrt_control(struct rt_serial_device *serial, int cmd, void *arg)
+static int imxrt_control(rt_serial_t *serial, int cmd, void *arg)
 {
     struct imxrt_uart *uart;
 
@@ -455,19 +417,19 @@ static rt_err_t imxrt_control(struct rt_serial_device *serial, int cmd, void *ar
 
     switch (cmd)
     {
-    case RT_DEVICE_CTRL_CLR_INT:
-        /* disable interrupt */
+    case SERIAL_CTRL_RXSTOP:
         LPUART_DisableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
-        /* disable rx irq */
-        DisableIRQ(uart->irqn);
-
         break;
-    case RT_DEVICE_CTRL_SET_INT:
+    case SERIAL_CTRL_RXSTART:
         /* enable interrupt */
         LPUART_EnableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
-        /* enable rx irq */
-        EnableIRQ(uart->irqn);
         break;
+	case SERIAL_CTRL_TXSTART:
+		LPUART_EnableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
+	    break;
+	case SERIAL_CTRL_TXSTOP:
+		LPUART_DisableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
+	    break;	
     }
 
     return RT_EOK;
@@ -480,8 +442,8 @@ static int imxrt_putc(struct rt_serial_device *serial, char ch)
     RT_ASSERT(serial != RT_NULL);
     uart = (struct imxrt_uart *)serial->parent.user_data;
 
+	while(!(LPUART_GetStatusFlags(uart->uart_base) & kLPUART_TxDataRegEmptyFlag));
     LPUART_WriteByte(uart->uart_base, ch);
-    while(!(LPUART_GetStatusFlags(uart->uart_base) & kLPUART_TxDataRegEmptyFlag));
 
     return 1;
 }
@@ -498,6 +460,23 @@ static int imxrt_getc(struct rt_serial_device *serial)
     if (LPUART_GetStatusFlags(uart->uart_base) & kLPUART_RxDataRegFullFlag)
         ch = LPUART_ReadByte(uart->uart_base);
     return ch;
+}
+
+static int imxrt_init(rt_serial_t *serial)
+{
+    struct imxrt_uart *uart;
+
+    uart = (struct imxrt_uart *)serial->parent.user_data;
+
+    imxrt_uart_gpio_init(uart);
+    EnableIRQ(uart->irqn);
+	
+	return 0;
+}
+
+static void imxrt_deinit(rt_serial_t *serial)
+{
+
 }
 
 /**
@@ -527,6 +506,11 @@ static void uart_isr(struct rt_serial_device *serial)
         rt_hw_serial_isr(serial, RT_SERIAL_EVENT_RX_IND);
     }
 
+    if (LPUART_GetStatusFlags(base) & kLPUART_TxDataRegEmptyInterruptEnable)
+    {
+        rt_hw_serial_isr(serial, RT_SERIAL_EVENT_TX_DONE);
+    }
+
     /* If RX overrun. */
     if (LPUART_STAT_OR_MASK & base->STAT)
     {
@@ -540,6 +524,8 @@ static void uart_isr(struct rt_serial_device *serial)
 
 static const struct rt_uart_ops imxrt_uart_ops =
 {
+	imxrt_init,
+	imxrt_deinit,
     imxrt_configure,
     imxrt_control,
     imxrt_putc,
@@ -548,17 +534,15 @@ static const struct rt_uart_ops imxrt_uart_ops =
 
 int imxrt_hw_usart_init(void)
 {
-    struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
     int i;
     for (i = 0; i < sizeof(uarts) / sizeof(uarts[0]); i++)
     {
         uarts[i].serial->ops    = &imxrt_uart_ops;
-        uarts[i].serial->config = config;
 
         /* register UART1 device */
         rt_hw_serial_register(uarts[i].serial,
                               uarts[i].device_name,
-                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX,
+                              0,
                               (void *)&uarts[i]);
     }
 
