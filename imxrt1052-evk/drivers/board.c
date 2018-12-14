@@ -178,11 +178,7 @@ void rt_hw_board_init()
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();
 #endif
-    
-#ifdef RT_USING_CONSOLE
-    rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
-#endif
-    
+
 #ifdef RT_USING_HEAP
     rt_kprintf("sdram heap, begin: 0x%p, end: 0x%p\n", SDRAM_BEGIN, SDRAM_END);
     rt_system_heap_init((void*)SDRAM_BEGIN, (void*)SDRAM_END);
