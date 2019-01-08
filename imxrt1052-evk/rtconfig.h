@@ -51,6 +51,8 @@
 #define ARCH_ARM
 #define ARCH_ARM_CORTEX_M
 #define ARCH_ARM_CORTEX_M7
+#define RT_USING_LWP
+#define LWP_USING_RIK
 
 /* RT-Thread Components */
 
@@ -80,7 +82,7 @@
 
 /* Device virtual file system */
 
-#define RT_USING_DFS
+#define RT_USING_VFS
 //#define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
@@ -101,7 +103,7 @@
 #define RT_DFS_ELM_MAX_SECTOR_SIZE 512
 /* RT_DFS_ELM_USE_ERASE is not set */
 #define RT_DFS_ELM_REENTRANT
-#define RT_USING_DFS_DEVFS
+#define RT_USING_VFS_DEVFS
 /* RT_USING_DFS_NET is not set */
 /* RT_USING_DFS_ROMFS is not set */
 /* RT_USING_DFS_RAMFS is not set */

@@ -40,14 +40,14 @@ struct imxrt_uart
     LPUART_Type * uart_base;
     IRQn_Type irqn;
 
-    struct rt_serial_device * serial;
+    rt_serial_t * serial;
     char *device_name;
 };
 
-static void uart_isr(struct rt_serial_device *serial);
+static void uart_isr(rt_serial_t *serial);
 
 #if defined(RT_USING_UART1)
-struct rt_serial_device serial1;
+static rt_serial_t serial1;
 
 void LPUART1_IRQHandler(void)
 {
@@ -408,34 +408,34 @@ static int imxrt_configure(rt_serial_t *serial, struct serial_configure *cfg)
     return 0;
 }
 
-static int imxrt_control(rt_serial_t *serial, int cmd, void *arg)
+static int imxrt_control(rt_serial_t *serial, int cmd, long arg)
 {
     struct imxrt_uart *uart;
 
-    RT_ASSERT(serial != RT_NULL);
     uart = (struct imxrt_uart *)serial->parent.user_data;
 
     switch (cmd)
     {
-    case SERIAL_CTRL_RXSTOP:
-        LPUART_DisableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
-        break;
-    case SERIAL_CTRL_RXSTART:
-        /* enable interrupt */
-        LPUART_EnableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
-        break;
-	case SERIAL_CTRL_TXSTART:
-		LPUART_EnableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
-	    break;
-	case SERIAL_CTRL_TXSTOP:
-		LPUART_DisableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
-	    break;	
+    case UART_CMD_SET_INTRX:
+    {
+        if (arg)
+            LPUART_EnableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
+        else
+            LPUART_DisableInterrupts(uart->uart_base, kLPUART_RxDataRegFullInterruptEnable);
+    }break;
+    case UART_CMD_SET_INTTX:
+    {
+        if (arg)
+            LPUART_EnableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
+        else
+            LPUART_DisableInterrupts(uart->uart_base, kLPUART_TxDataRegEmptyInterruptEnable);
+    }break;	
     }
 
-    return RT_EOK;
+    return 0;
 }
 
-static int imxrt_putc(struct rt_serial_device *serial, char ch)
+static int imxrt_putc(rt_serial_t *serial, char ch)
 {
     struct imxrt_uart *uart;
 
@@ -448,7 +448,7 @@ static int imxrt_putc(struct rt_serial_device *serial, char ch)
     return 1;
 }
 
-static int imxrt_getc(struct rt_serial_device *serial)
+static int imxrt_getc(rt_serial_t *serial)
 {
     int ch;
     struct imxrt_uart *uart;
@@ -484,7 +484,7 @@ static void imxrt_deinit(rt_serial_t *serial)
  *
  * @param serial serial device
  */
-static void uart_isr(struct rt_serial_device *serial)
+static void uart_isr(rt_serial_t *serial)
 {
     struct imxrt_uart *uart;
     LPUART_Type *base;
@@ -503,12 +503,12 @@ static void uart_isr(struct rt_serial_device *serial)
     /* UART in mode Receiver -------------------------------------------------*/
     if (LPUART_GetStatusFlags(base) & kLPUART_RxDataRegFullFlag)
     {
-        rt_hw_serial_isr(serial, RT_SERIAL_EVENT_RX_IND);
+        rt_serial_isr(serial, SERIAL_EVENT_RX_IND);
     }
 
     if (LPUART_GetStatusFlags(base) & kLPUART_TxDataRegEmptyInterruptEnable)
     {
-        rt_hw_serial_isr(serial, RT_SERIAL_EVENT_TX_DONE);
+        rt_serial_isr(serial, SERIAL_EVENT_TX_DONE);
     }
 
     /* If RX overrun. */
@@ -524,30 +524,30 @@ static void uart_isr(struct rt_serial_device *serial)
 
 static const struct rt_uart_ops imxrt_uart_ops =
 {
-	imxrt_init,
-	imxrt_deinit,
     imxrt_configure,
     imxrt_control,
     imxrt_putc,
     imxrt_getc,
+	imxrt_init,
+	imxrt_deinit,    
 };
 
 int imxrt_hw_usart_init(void)
 {
     int i;
+
     for (i = 0; i < sizeof(uarts) / sizeof(uarts[0]); i++)
     {
         uarts[i].serial->ops    = &imxrt_uart_ops;
 
         /* register UART1 device */
-        rt_hw_serial_register(uarts[i].serial,
+        rt_serial_register(uarts[i].serial,
                               uarts[i].device_name,
-                              0,
                               (void *)&uarts[i]);
     }
 
     return 0;
 }
-INIT_BOARD_EXPORT(imxrt_hw_usart_init);
+INIT_DEVICE_EXPORT(imxrt_hw_usart_init);
 
 #endif /*RT_USING_SERIAL */
